@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Scraper Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    .header { background: #1e293b; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .header .status { display: flex; align-items: center; gap: 8px; }
+    .header .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.running { background: #22c55e; animation: pulse 1.5s infinite; }
+    .dot.stopped { background: #ef4444; }
+    .dot.idle { background: #64748b; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+    .controls { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+    .controls input { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 8px 12px; border-radius: 6px; width: 120px; }
+    .controls input.wide { width: 400px; }
+    .controls label { font-size: 13px; color: #94a3b8; }
+    .btn { padding: 8px 18px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; transition: .15s; }
+    .btn-start { background: #22c55e; color: #000; }
+    .btn-start:hover { background: #16a34a; }
+    .btn-stop { background: #ef4444; color: #fff; }
+    .btn-stop:hover { background: #dc2626; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .card { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; }
+    .card .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .card .value { font-size: 28px; font-weight: 700; }
+    .card .sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .card.green .value { color: #22c55e; }
+    .card.red .value { color: #ef4444; }
+    .card.blue .value { color: #3b82f6; }
+    .card.yellow .value { color: #eab308; }
+    .card.purple .value { color: #a855f7; }
+
+    .progress-bar { background: #1e293b; border-radius: 8px; height: 28px; overflow: hidden; margin-bottom: 20px; border: 1px solid #334155; position: relative; }
+    .progress-bar .fill { height: 100%; transition: width 0.5s; border-radius: 8px; }
+    .progress-bar .fill.success { background: linear-gradient(90deg, #22c55e, #16a34a); }
+    .progress-bar .text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+
+    .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 900px) { .panels { grid-template-columns: 1fr; } }
+
+    .panel { background: #1e293b; border-radius: 10px; border: 1px solid #334155; overflow: hidden; }
+    .panel-header { padding: 12px 16px; border-bottom: 1px solid #334155; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .panel-body { padding: 12px 16px; max-height: 350px; overflow-y: auto; }
+
+    .bar-chart .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .bar-chart .bar-label { width: 120px; font-size: 12px; color: #94a3b8; text-align: right; flex-shrink: 0; }
+    .bar-chart .bar-track { flex: 1; height: 22px; background: #0f172a; border-radius: 4px; overflow: hidden; position: relative; }
+    .bar-chart .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; min-width: 2px; }
+    .bar-chart .bar-count { font-size: 12px; width: 50px; text-align: right; flex-shrink: 0; }
+
+    .log-box { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; color: #94a3b8; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 8px 10px; color: #94a3b8; font-weight: 500; font-size: 12px; border-bottom: 1px solid #334155; position: sticky; top: 0; background: #1e293b; }
+    td { padding: 6px 10px; border-bottom: 1px solid #1e293b; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    tr:hover td { background: #1e293b; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge.scraped { background: #22c55e22; color: #22c55e; }
+    .badge.error { background: #ef444422; color: #ef4444; }
+    .badge.exact_match { background: #3b82f622; color: #3b82f6; }
+    .badge.new_has_more { background: #22c55e22; color: #22c55e; }
+    .badge.old_has_more { background: #eab30822; color: #eab308; }
+    .badge.different { background: #a855f722; color: #a855f7; }
+    .badge.no_new_emails { background: #ef444422; color: #ef4444; }
+    .badge.no_old_emails { background: #06b6d422; color: #06b6d4; }
+
+    .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .filter-btn { padding: 4px 12px; border: 1px solid #334155; background: transparent; color: #94a3b8; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .filter-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+    .pagination { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 12px; }
+    .pagination button { padding: 4px 12px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; border-radius: 4px; cursor: pointer; }
+    .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .email-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+    .email-stat { background: #0f172a; border-radius: 6px; padding: 10px; text-align: center; }
+    .email-stat .num { font-size: 22px; font-weight: 700; }
+    .email-stat .lbl { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Email Scraper Dashboard</h1>
+    <div class="status">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Idle</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Controls -->
+    <div class="controls">
+      <div>
+        <label>Concurrency</label><br>
+        <input type="number" id="concurrency" value="200" min="1" max="500">
+      </div>
+      <div>
+        <label>API URL</label><br>
+        <input type="text" id="apiUrl" class="wide" value="https://ocowgo8kkow0s4okc4g8kgcg.up.uparrowagency.com/extract-emails">
+      </div>
+      <div style="margin-top:18px">
+        <button class="btn btn-start" id="startBtn" onclick="startScraper()">Start Scraper</button>
+        <button class="btn btn-stop" id="stopBtn" onclick="stopScraper()" disabled>Stop</button>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar">
+      <div class="fill success" id="progressFill" style="width:0%"></div>
+      <div class="text" id="progressText">0 / 0 (0%)</div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid" id="statsGrid">
+      <div class="card"><div class="label">Total URLs</div><div class="value" id="statTotal">-</div></div>
+      <div class="card green"><div class="label">Scraped</div><div class="value" id="statScraped">-</div></div>
+      <div class="card red"><div class="label">Errors</div><div class="value" id="statErrors">-</div></div>
+      <div class="card blue"><div class="label">Rate</div><div class="value" id="statRate">-</div><div class="sub">urls/sec</div></div>
+      <div class="card yellow"><div class="label">ETA</div><div class="value" id="statEta">-</div></div>
+      <div class="card purple"><div class="label">Elapsed</div><div class="value" id="statElapsed">-</div></div>
+    </div>
+
+    <!-- Email Stats -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="label" style="margin-bottom:8px">Email Comparison Summary</div>
+      <div class="email-stats" id="emailStats">
+        <div class="email-stat"><div class="num" id="esOld">-</div><div class="lbl">Old Emails</div></div>
+        <div class="email-stat"><div class="num" id="esNew">-</div><div class="lbl">New Emails</div></div>
+        <div class="email-stat"><div class="num" id="esGained" style="color:#22c55e">-</div><div class="lbl">Gained</div></div>
+        <div class="email-stat"><div class="num" id="esLost" style="color:#ef4444">-</div><div class="lbl">Lost</div></div>
+      </div>
+    </div>
+
+    <!-- Panels -->
+    <div class="panels">
+      <!-- Comparison Chart -->
+      <div class="panel">
+        <div class="panel-header">Comparison Breakdown</div>
+        <div class="panel-body bar-chart" id="compChart"></div>
+      </div>
+      <!-- Logs -->
+      <div class="panel">
+        <div class="panel-header">Live Logs <span style="font-size:11px;color:#64748b" id="logCount"></span></div>
+        <div class="panel-body log-box" id="logBox">Waiting...</div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="panel" style="margin-top: 16px">
+      <div class="panel-header">Results Table</div>
+      <div style="padding: 12px 16px">
+        <div class="filter-bar" id="filterBar">
+          <button class="filter-btn active" data-f="all">All</button>
+          <button class="filter-btn" data-f="scraped">Scraped</button>
+          <button class="filter-btn" data-f="error">Errors</button>
+          <button class="filter-btn" data-f="pending">Pending</button>
+          <button class="filter-btn" data-f="exact_match">Exact Match</button>
+          <button class="filter-btn" data-f="new_has_more">New Has More</button>
+          <button class="filter-btn" data-f="different">Different</button>
+          <button class="filter-btn" data-f="no_new_emails">No New Emails</button>
+        </div>
+        <div style="overflow-x:auto; max-height: 500px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>URL</th>
+                <th>Old Emails</th>
+                <th>New Emails</th>
+                <th>Status</th>
+                <th>Comparison</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentFilter = 'all';
+    let currentPage = 1;
+    let isRunning = false;
+
+    const COLORS = {
+      exact_match: '#3b82f6',
+      new_has_more: '#22c55e',
+      old_has_more: '#eab308',
+      different: '#a855f7',
+      no_new_emails: '#ef4444',
+      no_old_emails: '#06b6d4',
+      both_empty: '#64748b',
+    };
+
+    // ── Polling ─────────────────────────────────────────────────────────────
+    async function poll() {
+      try {
+        const [progress, analysis, logs] = await Promise.all([
+          fetch('/api/progress').then(r => r.json()),
+          fetch('/api/analysis').then(r => r.json()).catch(() => null),
+          fetch('/api/logs').then(r => r.json()).catch(() => ({ logs: [] })),
+        ]);
+
+        updateStatus(progress);
+        updateProgress(progress);
+        updateStats(progress, analysis);
+        updateChart(progress, analysis);
+        updateLogs(logs);
+        if (analysis) updateEmailStats(analysis);
+      } catch (err) {
+        console.error('Poll error:', err);
+      }
+    }
+
+    function updateStatus(p) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+
+      isRunning = p.isRunning || p.running;
+
+      if (isRunning) {
+        dot.className = 'dot running';
+        text.textContent = 'Running';
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      } else if (p.completed > 0) {
+        dot.className = 'dot stopped';
+        text.textContent = 'Completed';
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      } else {
+        dot.className = 'dot idle';
+        text.textContent = 'Idle';
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+    }
+
+    function updateProgress(p) {
+      const pct = p.total ? ((p.completed / p.total) * 100).toFixed(1) : 0;
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressText').textContent =
+        `${p.completed.toLocaleString()} / ${p.total.toLocaleString()} (${pct}%)`;
+    }
+
+    function updateStats(p, a) {
+      document.getElementById('statTotal').textContent = p.total.toLocaleString();
+      document.getElementById('statScraped').textContent = (p.success || (a && a.scraped) || 0).toLocaleString();
+      document.getElementById('statErrors').textContent = (p.failed || (a && a.errors) || 0).toLocaleString();
+
+      if (p.startTime) {
+        const elapsed = (Date.now() - p.startTime) / 1000;
+        const rate = p.completed / (elapsed || 1);
+        const remaining = p.total - p.completed;
+        const eta = remaining / (rate || 1);
+
+        document.getElementById('statRate').textContent = rate.toFixed(1);
+        document.getElementById('statElapsed').textContent = formatTime(elapsed);
+        document.getElementById('statEta').textContent = remaining > 0 ? formatTime(eta) : 'Done';
+      }
+    }
+
+    function updateChart(p, a) {
+      const stats = (a && a.comparisonCounts) || p.stats || {};
+      const container = document.getElementById('compChart');
+      const max = Math.max(...Object.values(stats), 1);
+
+      let html = '';
+      const labels = {
+        exact_match: 'Exact Match',
+        new_has_more: 'New Has More',
+        old_has_more: 'Old Has More',
+        different: 'Different',
+        no_new_emails: 'No New Emails',
+        no_old_emails: 'No Old Emails',
+        both_empty: 'Both Empty',
+      };
+
+      for (const [key, label] of Object.entries(labels)) {
+        const val = stats[key] || 0;
+        const w = (val / max * 100).toFixed(1);
+        const color = COLORS[key] || '#64748b';
+        html += `
+          <div class="bar-row">
+            <div class="bar-label">${label}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${w}%;background:${color}"></div>
+            </div>
+            <div class="bar-count">${val.toLocaleString()}</div>
+          </div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function updateEmailStats(a) {
+      document.getElementById('esOld').textContent = (a.totalOldEmails || 0).toLocaleString();
+      document.getElementById('esNew').textContent = (a.totalNewEmails || 0).toLocaleString();
+      document.getElementById('esGained').textContent = '+' + (a.gainedEmails || 0).toLocaleString();
+      document.getElementById('esLost').textContent = '-' + (a.lostEmails || 0).toLocaleString();
+    }
+
+    function updateLogs(data) {
+      const box = document.getElementById('logBox');
+      if (data.logs && data.logs.length) {
+        box.textContent = data.logs.slice(-50).join('\n');
+        box.scrollTop = box.scrollHeight;
+        document.getElementById('logCount').textContent = `(${data.logs.length} lines)`;
+      }
+    }
+
+    // ── Table ───────────────────────────────────────────────────────────────
+    async function loadTable() {
+      try {
+        const res = await fetch(`/api/rows?page=${currentPage}&limit=50&filter=${currentFilter}`);
+        const data = await res.json();
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = data.rows.map(r => `
+          <tr>
+            <td>${r.id}</td>
+            <td title="${r.url}">${truncate(r.url, 40)}</td>
+            <td title="${r.emails || ''}">${truncate(r.emails || '-', 30)}</td>
+            <td title="${r.new_emails || ''}">${truncate(r.new_emails || '-', 30)}</td>
+            <td><span class="badge ${r.status || ''}">${r.status || 'pending'}</span></td>
+            <td><span class="badge ${r.comparison || ''}">${r.comparison || '-'}</span></td>
+            <td title="${r.note || ''}">${truncate(r.note || '', 25)}</td>
+          </tr>
+        `).join('');
+
+        // Pagination
+        const totalPages = Math.ceil(data.total / 50);
+        const pag = document.getElementById('pagination');
+        pag.innerHTML = `
+          <button ${currentPage <= 1 ? 'disabled' : ''} onclick="goPage(${currentPage - 1})">Prev</button>
+          <span>Page ${currentPage} of ${totalPages} (${data.total.toLocaleString()} rows)</span>
+          <button ${currentPage >= totalPages ? 'disabled' : ''} onclick="goPage(${currentPage + 1})">Next</button>
+        `;
+      } catch (err) {
+        console.error('Table error:', err);
+      }
+    }
+
+    function goPage(p) { currentPage = p; loadTable(); }
+
+    // Filter buttons
+    document.getElementById('filterBar').addEventListener('click', e => {
+      if (e.target.classList.contains('filter-btn')) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentFilter = e.target.dataset.f;
+        currentPage = 1;
+        loadTable();
+      }
+    });
+
+    // ── Actions ─────────────────────────────────────────────────────────────
+    async function startScraper() {
+      const concurrency = document.getElementById('concurrency').value;
+      const apiUrl = document.getElementById('apiUrl').value;
+      try {
+        const res = await fetch('/api/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ concurrency: parseInt(concurrency), apiUrl }),
+        });
+        const data = await res.json();
+        if (!res.ok) alert(data.error);
+      } catch (err) {
+        alert('Failed to start: ' + err.message);
+      }
+    }
+
+    async function stopScraper() {
+      if (!confirm('Stop the scraper?')) return;
+      try {
+        await fetch('/api/stop', { method: 'POST' });
+      } catch (err) {
+        alert('Failed to stop: ' + err.message);
+      }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : s; }
+    function formatTime(s) {
+      if (s < 60) return Math.round(s) + 's';
+      if (s < 3600) return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
+      return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────────
+    poll();
+    loadTable();
+    setInterval(poll, 3000);
+    setInterval(loadTable, 10000);
+  </script>
+</body>
+</html>

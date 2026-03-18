@@ -1,0 +1,15 @@
+{
+  "name": "scraper-api-test",
+  "version": "1.0.0",
+  "description": "Test suite and analysis dashboard for browserless email scraper",
+  "scripts": {
+    "test": "node test_scraper.js",
+    "dashboard": "node server.js"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.0",
+    "csv-stringify": "^6.4.0",
+    "express": "^4.18.2",
+    "p-limit": "^3.1.0"
+  }
+}
