@@ -1,15 +1,18 @@
 {
-  "name": "scraper-api-test",
+  "name": "scraper-api-dashboard",
   "version": "1.0.0",
-  "description": "Test suite and analysis dashboard for browserless email scraper",
+  "description": "Email scraper dashboard built with Next.js",
   "scripts": {
-    "test": "node test_scraper.js",
-    "dashboard": "node server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
     "csv-parse": "^5.5.0",
     "csv-stringify": "^6.4.0",
-    "express": "^4.18.2",
-    "p-limit": "^3.1.0"
+    "next": "^14.2.0",
+    "p-limit": "^3.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }

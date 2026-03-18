@@ -1,4 +1,6 @@
-node_modules
-progress.json
-*.log
-.git
+node_modules/
+.next/
+out/
+.git/
+*.csv
+.env
