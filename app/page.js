@@ -37,6 +37,36 @@ function truncate(s, n) {
   return s && s.length > n ? s.slice(0, n) + "\u2026" : s;
 }
 
+function parseEmailList(raw) {
+  if (!raw || raw === "[]" || raw === "-") return [];
+  try {
+    return JSON.parse(raw.replace(/""/g, '"')).map((e) => e.trim().toLowerCase());
+  } catch {
+    try {
+      const cleaned = raw.replace(/^\[""/, '["').replace(/""]/g, '"]').replace(/"",""/, '","');
+      return JSON.parse(cleaned).map((e) => e.trim().toLowerCase());
+    } catch {
+      return [];
+    }
+  }
+}
+
+function emailDiffTooltip(oldRaw, newRaw) {
+  const oldEmails = parseEmailList(oldRaw);
+  const newEmails = parseEmailList(newRaw);
+  if (!oldEmails.length && !newEmails.length) return "";
+  const oldSet = new Set(oldEmails);
+  const newSet = new Set(newEmails);
+  const gained = newEmails.filter((e) => !oldSet.has(e));
+  const lost = oldEmails.filter((e) => !newSet.has(e));
+  const kept = newEmails.filter((e) => oldSet.has(e));
+  const parts = [];
+  if (kept.length) parts.push("Kept: " + kept.join(", "));
+  if (gained.length) parts.push("+ New: " + gained.join(", "));
+  if (lost.length) parts.push("- Lost: " + lost.join(", "));
+  return parts.join("\n");
+}
+
 function formatTime(s) {
   if (s < 60) return Math.round(s) + "s";
   if (s < 3600) return Math.floor(s / 60) + "m " + Math.round(s % 60) + "s";
@@ -263,7 +293,7 @@ export default function Dashboard() {
                       <td>{r.id}</td>
                       <td title={r.url}>{truncate(r.url, 40)}</td>
                       <td title={r.emails || ""}>{truncate(r.emails || "-", 30)}</td>
-                      <td title={r.new_emails || ""}>{truncate(r.new_emails || "-", 30)}</td>
+                      <td title={emailDiffTooltip(r.emails, r.new_emails) || r.new_emails || ""}>{truncate(r.new_emails || "-", 30)}</td>
                       <td><span className={`badge ${r.status || ""}`}>{r.status || "pending"}</span></td>
                       <td><span className={`badge ${r.comparison || ""}`}>{r.comparison || "-"}</span></td>
                       <td title={r.note || ""}>{truncate(r.note || "", 25)}</td>
